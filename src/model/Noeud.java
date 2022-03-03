@@ -1,13 +1,9 @@
 package model;
-
- 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
-
-
 
 
 
@@ -79,12 +75,17 @@ public class Noeud {
 		this.doublon = doublon;
 	}
 
+
+	
 	@Override
 	public String toString() {
-		return "";
-	}	
-	
-	
+		return "Noeud [stagiaire=" + stagiaire + ", filsDroit=" + filsDroit + ", filsGauche=" + filsGauche
+				+ ", doublon=" + doublon + "]";
+	}
+
+
+
+
 	public Noeud lireUnNoeud(RandomAccessFile raf) {
 		Noeud noeud = new Noeud();
 		try {
@@ -124,7 +125,14 @@ public class Noeud {
 		return noeud;
 	}
 
-	
+	public void ecrireUnNoeud(RandomAccessFile raf, Noeud courant) throws IOException {
+		raf.writeChars(courant.stagiaire.nomLong()+courant.stagiaire.prenomLong()+courant.stagiaire.departementLong()+courant.stagiaire.promoLong());
+		raf.writeInt(courant.stagiaire.getAnnee());
+		raf.writeInt(courant.getFilsGauche());
+		raf.writeInt(courant.getFilsDroit());
+		raf.writeInt(courant.getDoublon());
+	}
+
 	
 	public void ajouterUnStagiaire(Stagiaire stagiaire, String cheminAccesFichierBin) throws IOException {
 			
@@ -202,310 +210,246 @@ public class Noeud {
 	}
 
 
-public List<Stagiaire> rechercherParDepartement(String DepartementRecherche,List <Stagiaire>list, String cheminAccesFichierBin, long position){
+	public List<Stagiaire> parcoursInfixe(List<Stagiaire> liste, String cheminAccesFichierBin, int position) {
+		int tailleObjet = 16 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
+		try {
+			RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
+			raf.seek(position);
+			if (raf.length()!=0) {
+				Noeud courant = lireUnNoeud(raf);
+				if (courant.filsGauche!=-1 && courant.filsDroit!=-1) {
+					parcoursInfixe(liste, cheminAccesFichierBin, courant.filsGauche*tailleObjet);
+					liste.add(courant.stagiaire);
+					if (courant.doublon!=-1) {
+						parcoursInfixe(liste, cheminAccesFichierBin, courant.doublon*tailleObjet);
+					}
+					parcoursInfixe(liste, cheminAccesFichierBin, courant.filsDroit*tailleObjet);
+				} else if (courant.filsGauche!=-1 && courant.filsDroit==-1) {
+					parcoursInfixe(liste, cheminAccesFichierBin, courant.filsGauche*tailleObjet);
+					liste.add(courant.stagiaire);
+					if (courant.doublon!=-1) {
+						parcoursInfixe(liste, cheminAccesFichierBin, courant.doublon*tailleObjet);
+					}
+				} else if (courant.filsGauche==-1 && courant.filsDroit!=-1) {
+					liste.add(courant.stagiaire);
+					if (courant.doublon!=-1) {
+						parcoursInfixe(liste, cheminAccesFichierBin, courant.doublon*tailleObjet);
+					}
+					parcoursInfixe(liste, cheminAccesFichierBin, courant.filsDroit*tailleObjet);
+				} else {
+					liste.add(courant.stagiaire);
+					if (courant.doublon!=-1) {
+						parcoursInfixe(liste, cheminAccesFichierBin, courant.doublon*tailleObjet);
+					}
+				}
+			}
+			raf.close();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return liste;
+	}
+	
+
+	public void rechercherMulticrit(Stagiaire stagiaireRecherche,List<Stagiaire> liste, String cheminAccesFichierBin, int position){
 		
 		// taille en octet d'un objet Stagiaire ecrit en binaire
-		//	int tailleObjet = 12 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
-				
+		int tailleObjet = 16 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
+			
+
 			try {
 				RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
 				raf.seek(position);
 				
-					Noeud courant = new Noeud();
-					courant = lireUnNoeud(raf);
-					
-					if (courant.stagiaire.getDepartement().equals(DepartementRecherche)) {
-						
-				    list.add(courant.stagiaire);
+				if (raf.length()!=0) {
+					Noeud courant = lireUnNoeud(raf);
+					if (courant.filsGauche!=-1 && courant.filsDroit!=-1) {
+						rechercherMulticrit(stagiaireRecherche, liste, cheminAccesFichierBin, courant.filsGauche*tailleObjet);
+						if (courant.stagiaire.compareMultiCrit(stagiaireRecherche)) {
+							liste.add(courant.stagiaire);
+						}
+						if (courant.doublon!=-1) {
+							rechercherMulticrit(stagiaireRecherche, liste, cheminAccesFichierBin, courant.doublon*tailleObjet);
+						}
+						rechercherMulticrit(stagiaireRecherche, liste, cheminAccesFichierBin, courant.filsDroit*tailleObjet);
+					} else if (courant.filsGauche!=-1 && courant.filsDroit==-1) {
+						rechercherMulticrit(stagiaireRecherche, liste, cheminAccesFichierBin, courant.filsGauche*tailleObjet);
+						if (courant.stagiaire.compareMultiCrit(stagiaireRecherche)) {
+							liste.add(courant.stagiaire);						
+						}
+						if (courant.doublon!=-1) {
+							rechercherMulticrit(stagiaireRecherche, liste, cheminAccesFichierBin, courant.doublon*tailleObjet);
+						}
+					} else if (courant.filsGauche==-1 && courant.filsDroit!=-1) {
+						if (courant.stagiaire.compareMultiCrit(stagiaireRecherche)) {
+							liste.add(courant.stagiaire);
+						}
+						if (courant.doublon!=-1) {
+							rechercherMulticrit(stagiaireRecherche, liste, cheminAccesFichierBin, courant.doublon*tailleObjet);
+						}
+						rechercherMulticrit(stagiaireRecherche, liste, cheminAccesFichierBin, courant.filsDroit*tailleObjet);
+					} else {
+						if (courant.stagiaire.compareMultiCrit(stagiaireRecherche)) {
+							liste.add(courant.stagiaire);
+						}
+						if (courant.doublon!=-1) {
+							rechercherMulticrit(stagiaireRecherche, liste, cheminAccesFichierBin, courant.doublon*tailleObjet);
+						}
 					}
-					
-					
-					if (raf.getFilePointer()!=raf.length()){
-						position = raf.getFilePointer();
-					courant.rechercherParDepartement(DepartementRecherche, list, cheminAccesFichierBin,position);
-						
-					}
-					raf.close();
-					
-					
-			}
-			
-			catch (FileNotFoundException e) {
+				}
+				raf.close();
+			} catch (FileNotFoundException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			return list;
-			
-  }
 
-public List<Stagiaire> rechercherParAnnee(int anneeRecherche, List<Stagiaire> list, String cheminAccesFichierBin, long position) {
-	
-	try {
-		RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
-		raf.seek(position);
-			
-			
-			Noeud courant = new Noeud();
-			courant = lireUnNoeud(raf);
-			
-			if (courant.stagiaire.getAnnee()==anneeRecherche) {
-				
-		    list.add(courant.stagiaire);
-			}
-			
-			
-			if (raf.getFilePointer()!=raf.length()){
-				position = raf.getFilePointer();
-			courant.rechercherParAnnee(anneeRecherche, list, cheminAccesFichierBin, position);
-				
-			}
-			raf.close();
-	} catch (FileNotFoundException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	} catch (IOException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
+		
 	}
-	
-	return list;
-}
 
-public List<Stagiaire> rechercherParPromo(String PromoRecherche,List <Stagiaire>list, String cheminAccesFichierBin, long position){
-	
-	// taille en octet d'un objet Stagiaire ecrit en binaire
-	//	int tailleObjet = 12 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
-			
+	public void suppressionNoeud(Stagiaire stagiaireAsupprimer, String cheminaFichBin, int position)  {
 		try {
-			RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
+			RandomAccessFile raf = new RandomAccessFile(cheminaFichBin, "rw");
 			raf.seek(position);
-			
-			Noeud courant = new Noeud();
-			courant = lireUnNoeud(raf);
-				
-				if (courant.stagiaire.getPromo().equals(PromoRecherche)) {
-					
-			    list.add(courant.stagiaire);
-				}
-				
-				
-				if (raf.getFilePointer()!=raf.length()){
-					position = raf.getFilePointer();
-				courant.rechercherParPromo(PromoRecherche, list, cheminAccesFichierBin,position);
-					
-				}
-				raf.close();
-				
-		}
-		
-		catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return list;
-		
-}
-
-public List<Stagiaire> rechercherParNom(String nomRecherche,List <Stagiaire>list, String cheminAccesFichierBin, long position){
-    // taille en octet d'un objet Stagiaire ecrit en binaire
-    //  int tailleObjet = 12 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
-        try {
-            RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
-            raf.seek(position);
-			Noeud courant = new Noeud();
-			courant = lireUnNoeud(raf);
-			if (courant.stagiaire.getNom().equals(nomRecherche)) {
-                list.add(courant.stagiaire);
-                }
-                if (raf.getFilePointer()!=raf.length()){
-                    position = raf.getFilePointer();
-                courant.rechercherParNom(nomRecherche, list, cheminAccesFichierBin,position);
-                }
-                raf.close();
-        }
-        catch (FileNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        return list;
-	}
-
-public List<Stagiaire> rechercherParPrenom(String prenomRecherche,List <Stagiaire>list, String cheminAccesFichierBin, long position){
-    // taille en octet d'un objet Stagiaire ecrit en binaire
-    //  int tailleObjet = 12 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
-        try {
-            RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
-            raf.seek(position);
-			Noeud courant = new Noeud();
-			courant = lireUnNoeud(raf);
-                if (courant.stagiaire.getPrenom().equals(prenomRecherche)) {
-                list.add(courant.stagiaire);
-                }
-                if (raf.getFilePointer()!=raf.length()){
-                    position = raf.getFilePointer();
-                courant.rechercherParPrenom(prenomRecherche, list, cheminAccesFichierBin,position);
-                }
-                raf.close();
-        }
-        catch (FileNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        return list;
-}
-
-/* public List<Stagiaire> rechercherMulticrit(Stagiaire,List <Stagiaire>list, String cheminAccesFichierBin, long position){
 	
-	// taille en octet d'un objet Stagiaire ecrit en binaire
-	//	int tailleObjet = 12 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
-			
-		try {
-			RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
-			raf.seek(position);
-				String nom = "";
-				for(int j = 0; j < Stagiaire.TAILLE_MAX_NOM_PRENOM; j++) {
-					nom += raf.readChar();
-				}
-				String prenom = "";
-				for(int j = 0; j < Stagiaire.TAILLE_MAX_NOM_PRENOM; j++) {
-					prenom += raf.readChar();
-				}
-				String departement = "";
-				for(int j = 0; j < Stagiaire.TAILLE_MAX_DEP_PROMO; j++) {
-					departement += raf.readChar();
-				}
-				String promo = "";
-				for(int j = 0; j < Stagiaire.TAILLE_MAX_DEP_PROMO; j++) {
-					promo += raf.readChar();
-				}
-				int annee = raf.readInt();
-				nom = nom.trim();
-				prenom = prenom.trim();
-				departement = departement.trim();
-				promo = promo.trim();
-				
-				int filsGauche = raf.readInt();
-				int filsDroit = raf.readInt();
-				
-				Noeud courant = new Noeud(new Stagiaire(nom,prenom,departement,promo,annee),filsGauche,filsDroit);
-				
-				
-				if () {
-					
-			    list.add(courant.stagiaire);
-				}
-				
-				
-				if (raf.getFilePointer()!=raf.length()){
-					position = raf.getFilePointer();
-				courant.rechercherMulticrit(listeCritere, list, cheminAccesFichierBin,position);
-					
-				}
-				raf.close();
-				
-				
-		}
-		
-		catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return list;
-		
-}*/
-
-
-
-	public List<Stagiaire> convertirFichierBinToList(String cheminAccesFichierBin,long position,List <Stagiaire>list) throws IOException {
-		RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
-		raf.seek(position);
-		Noeud courant = new Noeud();
-		courant = lireUnNoeud(raf);
+			int tailleObjet = 16 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
+			Noeud courant = lireUnNoeud(raf);
 	
-		Stagiaire s = new Stagiaire(courant.stagiaire.getNom(), courant.stagiaire.getPrenom(), courant.stagiaire.getDepartement(), courant.stagiaire.getPromo(),courant.stagiaire.getAnnee());
-		list.add(s);
-		
-		if ((raf.getFilePointer() != raf.length())) {
+			if (courant.stagiaire.compare(stagiaireAsupprimer)) {
+				raf.seek(position);
+				supressionRacine(raf, courant);
+			} else if (courant.stagiaire.getNom().compareTo(stagiaireAsupprimer.getNom())>0) {
+				if (courant.filsGauche!=-1)  {
+					suppressionNoeud(stagiaireAsupprimer, cheminaFichBin, courant.filsGauche*tailleObjet);
+				}
+			} else if (courant.stagiaire.getNom().compareTo(stagiaireAsupprimer.getNom())<0){
+				if (courant.filsDroit!=-1) {
+					suppressionNoeud(stagiaireAsupprimer, cheminaFichBin, courant.filsDroit*tailleObjet);
+				}
+			} else {
+				if (courant.doublon!=-1) {
+					suppressionNoeud(stagiaireAsupprimer, cheminaFichBin, doublon*tailleObjet);
+				}
 
-			position = raf.getFilePointer();
+			}
 			raf.close();
-			return convertirFichierBinToList( cheminAccesFichierBin, position,list);
-		
-		}else {
-			raf.close();
-		return list;
-		
-	}}
-	public List<Stagiaire> supprimerStagiaire(List<Stagiaire>list,Stagiaire stagiaireAsupprimer){
-		
-		
-				list.remove(stagiaireAsupprimer);
-				return list;
-	}
-	public void construireNvFichierBin(List<Stagiaire>list,String cheminAccesFichierBin) {
-		try {
-		RandomAccessFile raf = new RandomAccessFile(cheminAccesFichierBin, "rw");
-		raf.setLength(0);
-		for(Stagiaire i : list) {
-		String	nom=i.getNom();
-		String prenom=i.getPrenom();
-		String departement=i.getDepartement();
-		String promo=i.getPromo();
-		int annee=i.getAnnee();
-		
-			
-			
-			raf.seek(0);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 
-			ajouterUnStagiaire(new Stagiaire(nom,prenom,departement,promo,annee), cheminAccesFichierBin);
-		
-		}} catch (IOException e) {
+		}
+	}
+
+	public Noeud noeudSuccesseur(RandomAccessFile raf, Noeud courant){
+		Noeud noeudFilD = new Noeud();
+		int tailleObjet = 16 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
+		try {
+			raf.seek(courant.filsDroit*tailleObjet);
+			noeudFilD = lireUnNoeud(raf);
+
+			while (noeudFilD.filsGauche != -1) {
+				raf.seek(noeudFilD.filsGauche*tailleObjet);
+				noeudFilD= lireUnNoeud(raf);
+			}
+		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-	
-		}
-	public void supprimer (String cheminAccesFichierBin,long position,List<Stagiaire>list,Stagiaire stagiaireAsupp ) throws IOException {
-	
-			convertirFichierBinToList(cheminAccesFichierBin, position,list);
-	
-			// TODO Auto-generated catch block
-		
-		supprimerStagiaire(list, stagiaireAsupp);
-		construireNvFichierBin(list, cheminAccesFichierBin);
-		
+    
+		return noeudFilD;
 	}
-	public void modifier(Stagiaire stagiaireAmodifier,String cheminAccesFichierBin,long position,List<Stagiaire>list1,List<Stagiaire>list2 ) throws IOException {
-	//	List<Stagiaire> list1 =new ArrayList<>();
-		rechercherParNom(stagiaireAmodifier.getNom(), list1, cheminAccesFichierBin, 0);
-		supprimer(cheminAccesFichierBin,position,list2,list1.get(0));
 
+
+	private void supressionRacine(RandomAccessFile raf, Noeud courant) {
+		int tailleObjet = 16 + 4 * Stagiaire.TAILLE_MAX_NOM_PRENOM + 4*Stagiaire.TAILLE_MAX_DEP_PROMO;
 		try {
-			this.ajouterUnStagiaire(stagiaireAmodifier, cheminAccesFichierBin);
+			if (courant.filsGauche==-1 && courant.filsDroit==-1 && courant.doublon==-1) {
+				int positionRacine = (int) raf.getFilePointer();
+				raf.seek(0);
+				boolean b = true;
+				while (b) {
+				
+					Noeud nouveauCourant = lireUnNoeud(raf);
+					if (nouveauCourant.filsGauche == positionRacine/tailleObjet) {
+						raf.seek(raf.getFilePointer()-12);
+						raf.writeInt(-1);
+						b = false;
+
+					} else if (nouveauCourant.filsDroit == positionRacine/tailleObjet) {
+						raf.seek(raf.getFilePointer()-8);
+						raf.writeInt(-1);
+						b= false;
+		
+					} else if (nouveauCourant.doublon==positionRacine/tailleObjet) {
+						raf.seek(raf.getFilePointer()-4);
+						raf.writeInt(-1);
+						b = false;
+					}
+				}
+			} else if (courant.filsGauche!=-1 && courant.filsDroit==-1) {
+				int positionRacine = (int) raf.getFilePointer();
+				raf.seek(courant.filsGauche*tailleObjet);
+				Noeud noeudFilG= lireUnNoeud(raf);
+				suppressionNoeud(noeudFilG.stagiaire, "src/mesFichiers/STAGIAIRES.bin", positionRacine);
+				raf.seek(positionRacine);
+				ecrireUnNoeud(raf, noeudFilG);
+				raf.seek(raf.getFilePointer()-4);
+				raf.writeInt(courant.doublon);
+			
+			} else if (courant.filsGauche==-1 && courant.filsDroit!=-1) {
+				int positionRacine = (int) raf.getFilePointer();
+				raf.seek(courant.filsDroit*tailleObjet);
+				Noeud noeudFilD= lireUnNoeud(raf);
+				suppressionNoeud(noeudFilD.stagiaire, "src/mesFichiers/STAGIAIRES.bin", positionRacine);
+				raf.seek(positionRacine);
+				ecrireUnNoeud(raf, noeudFilD);
+				raf.seek(raf.getFilePointer()-4);
+				raf.writeInt(courant.doublon);
+			} else if (courant.filsGauche==-1 && courant.filsDroit==-1 && courant.doublon!=-1) {
+				int positionRacine = (int) raf.getFilePointer();
+				raf.seek(courant.doublon*tailleObjet);
+				Noeud noeudDoublon= lireUnNoeud(raf);
+				suppressionNoeud(noeudDoublon.stagiaire, "src/mesFichiers/STAGIAIRES.bin", positionRacine);
+				raf.seek(positionRacine);
+				ecrireUnNoeud(raf,noeudDoublon);
+			} else if (courant.filsGauche!=-1 && courant.filsDroit!=-1) {
+				int positionRacine = (int) raf.getFilePointer();
+				Noeud noeudSuccesseur = noeudSuccesseur(raf, courant);
+				suppressionNoeud(noeudSuccesseur.stagiaire, "src/mesFichiers/STAGIAIRES.bin", courant.filsDroit*tailleObjet);
+				raf.seek(positionRacine);
+				ecrireUnNoeud(raf,noeudSuccesseur);
+				raf.seek(raf.getFilePointer()-12);
+				raf.writeInt(courant.filsGauche);
+				raf.writeInt(courant.filsDroit);
+				raf.writeInt(courant.doublon);
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
-	}
-
-	}
-
 	
+	}
 
-
+	public void modifierStagiaire(Stagiaire stagiaireAmodifier, Stagiaire nouveauStagiaire, String cheminFichierBinaire, int position) throws IOException {
+		
+		List<Stagiaire> listeAModifier =new ArrayList<>();
+		rechercherMulticrit(stagiaireAmodifier,listeAModifier, cheminFichierBinaire, position);
+		
+		Stagiaire  stagiaireRecherche = listeAModifier.get(0) ;
+		suppressionNoeud(stagiaireRecherche, cheminFichierBinaire, position);
+		
+		ajouterUnStagiaire(nouveauStagiaire, cheminFichierBinaire);
+		
+		
+	}
+}
